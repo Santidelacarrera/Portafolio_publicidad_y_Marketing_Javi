@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin · Portafolio Javiera Gurruchaga</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: { brand: { DEFAULT: "#D63384", light: "#E85D88", dark: "#A32763" }, surface: "#F8F9FA", ink: "#1A1A1A" }, fontFamily: { display: ["Poppins","sans-serif"], body: ["Inter","sans-serif"] } } }
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="bg-surface text-ink font-body min-h-screen flex items-center justify-center px-4">
+
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow-lg border border-pink-50 p-8">
+    <h1 class="font-display font-extrabold text-xl text-center text-brand mb-1">Panel Admin</h1>
+    <p class="text-center text-sm text-gray-500 mb-6">Portafolio Javiera Gurruchaga</p>
+
+    <form id="login-form" class="space-y-4">
+      <div>
+        <label class="text-sm font-medium text-gray-700">Usuario</label>
+        <input id="username" type="text" required autocomplete="username"
+          class="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-light" />
+      </div>
+      <div>
+        <label class="text-sm font-medium text-gray-700">Contraseña</label>
+        <input id="password" type="password" required autocomplete="current-password"
+          class="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-light" />
+      </div>
+
+      <p id="login-error" class="hidden text-sm text-red-600"></p>
+
+      <button type="submit"
+        class="w-full bg-brand hover:bg-brand-dark text-white font-semibold rounded-lg py-2.5 transition">
+        Ingresar
+      </button>
+    </form>
+
+    <a href="index.html" class="block text-center text-sm text-gray-400 hover:text-brand mt-5">← Volver al portafolio</a>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    document.getElementById("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errorEl = document.getElementById("login-error");
+      errorEl.classList.add("hidden");
+
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        await loginWithUsername(username, password);
+        window.location.href = "admin.html";
+      } catch (err) {
+        errorEl.textContent = "Usuario o contraseña incorrectos.";
+        errorEl.classList.remove("hidden");
+      }
+    });
+
+    // Si ya hay sesión activa, ir directo al panel
+    getCurrentSession().then((session) => {
+      if (session) window.location.href = "admin.html";
+    });
+  </script>
+</body>
+</html>

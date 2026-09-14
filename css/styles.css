@@ -1,0 +1,41 @@
+/* Estilos complementarios a Tailwind */
+
+.project-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.project-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px -12px rgba(214, 51, 132, 0.35);
+}
+
+.tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  background: #fbe4ee;
+  color: #a32763;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #f0aecb;
+  border-radius: 9999px;
+}
+
+/* Loader simple */
+.spinner {
+  border: 3px solid #fbe4ee;
+  border-top-color: #d63384;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

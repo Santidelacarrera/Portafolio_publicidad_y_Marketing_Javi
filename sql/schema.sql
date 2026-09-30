@@ -26,12 +26,14 @@ alter table public.projects add column if not exists video_assets jsonb not null
 alter table public.projects add column if not exists views integer not null default 0;
 alter table public.projects enable row level security;
 drop policy if exists "Public read projects" on public.projects; drop policy if exists "Authenticated insert projects" on public.projects; drop policy if exists "Authenticated update projects" on public.projects; drop policy if exists "Authenticated delete projects" on public.projects;
+drop policy if exists "public reads projects" on public.projects; drop policy if exists "admins manage projects" on public.projects;
 create policy "public reads projects" on public.projects for select using (true);
 create policy "admins manage projects" on public.projects for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
 create table if not exists public.site_settings (id int primary key default 1 check(id=1), instagram_url text, contact_email text, updated_at timestamptz not null default now());
 alter table public.site_settings enable row level security;
 drop policy if exists "Public read settings" on public.site_settings; drop policy if exists "Authenticated update settings" on public.site_settings;
+drop policy if exists "public reads settings" on public.site_settings; drop policy if exists "admins update settings" on public.site_settings;
 create policy "public reads settings" on public.site_settings for select using (true);
 create policy "admins update settings" on public.site_settings for update to authenticated using (public.is_admin()) with check (public.is_admin());
 
@@ -58,6 +60,7 @@ end $$;
 
 insert into storage.buckets (id,name,public) values ('portafolio-media','portafolio-media',true) on conflict(id) do nothing;
 drop policy if exists "Public read media" on storage.objects; drop policy if exists "Authenticated upload media" on storage.objects; drop policy if exists "Authenticated delete media" on storage.objects;
+drop policy if exists "public reads portfolio media" on storage.objects; drop policy if exists "admins upload portfolio media" on storage.objects; drop policy if exists "admins update portfolio media" on storage.objects; drop policy if exists "admins delete portfolio media" on storage.objects;
 create policy "public reads portfolio media" on storage.objects for select using (bucket_id='portafolio-media');
 create policy "admins upload portfolio media" on storage.objects for insert to authenticated with check (bucket_id='portafolio-media' and public.is_admin());
 create policy "admins update portfolio media" on storage.objects for update to authenticated using (bucket_id='portafolio-media' and public.is_admin()) with check (bucket_id='portafolio-media' and public.is_admin());

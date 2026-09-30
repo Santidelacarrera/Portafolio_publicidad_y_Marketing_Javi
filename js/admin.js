@@ -213,6 +213,7 @@ async function handleProjectSubmit(e) {
     closeProjectForm();
     loadAdminProjects();
   } catch (err) {
+    console.error("Error saving project or uploading media:", err);
     errorEl.textContent = "No se pudo guardar el proyecto. Revisa los datos e inténtalo nuevamente.";
     errorEl.classList.remove("hidden");
   } finally {

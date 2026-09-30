@@ -59,6 +59,7 @@ async function loadAdminProjects() {
     .order("created_at", { ascending: false });
 
   if (error) {
+    console.error("Error loading projects:", error);
     list.innerHTML = `<p class="text-red-600 text-sm">No fue posible cargar los proyectos. Intenta nuevamente.</p>`;
     return;
   }
@@ -117,6 +118,7 @@ function closeProjectForm() {
 async function editProject(id) {
   const { data, error } = await supabaseClient.from(TABLES.PROJECTS).select("*").eq("id", id).single();
   if (error) {
+    console.error("Error loading project for editing:", error);
     alert("No se pudo cargar el proyecto. Intenta nuevamente.");
     return;
   }
@@ -128,6 +130,7 @@ async function deleteProject(id) {
 
   const { error } = await supabaseClient.from(TABLES.PROJECTS).delete().eq("id", id);
   if (error) {
+    console.error("Error deleting project:", error);
     alert("No se pudo eliminar el proyecto. Intenta nuevamente.");
     return;
   }
@@ -223,12 +226,20 @@ async function handleProjectSubmit(e) {
  *  ESTADÍSTICAS
  * ============================================================ */
 async function loadStats() {
-  const [{ count: visitsCount }, { data: durations }, { count: projectsCount }, { data: projects }] = await Promise.all([
+  const [visitsResult, durationsResult, projectsCountResult, projectsResult] = await Promise.all([
     supabaseClient.from(TABLES.STATS_VISITS).select("*", { count: "exact", head: true }),
     supabaseClient.from(TABLES.STATS_TIME).select("duration_seconds"),
     supabaseClient.from(TABLES.PROJECTS).select("*", { count: "exact", head: true }),
     supabaseClient.from(TABLES.PROJECTS).select("title, views").order("views", { ascending: false }),
   ]);
+
+  if (visitsResult.error || durationsResult.error || projectsCountResult.error || projectsResult.error) {
+    console.error("Error loading admin statistics:", { visits: visitsResult.error, durations: durationsResult.error, projects: projectsCountResult.error || projectsResult.error });
+  }
+  const visitsCount = visitsResult.count;
+  const durations = durationsResult.data;
+  const projectsCount = projectsCountResult.count;
+  const projects = projectsResult.data;
 
   document.getElementById("stat-visits").textContent = visitsCount ?? 0;
   document.getElementById("stat-projects-count").textContent = projectsCount ?? 0;

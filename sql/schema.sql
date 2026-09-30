@@ -23,6 +23,7 @@ alter table public.projects add column if not exists tools text;
 alter table public.projects add column if not exists credits text;
 alter table public.projects add column if not exists rights text;
 alter table public.projects add column if not exists video_assets jsonb not null default '[]'::jsonb;
+alter table public.projects add column if not exists views integer not null default 0;
 alter table public.projects enable row level security;
 drop policy if exists "Public read projects" on public.projects; drop policy if exists "Authenticated insert projects" on public.projects; drop policy if exists "Authenticated update projects" on public.projects; drop policy if exists "Authenticated delete projects" on public.projects;
 create policy "public reads projects" on public.projects for select using (true);
@@ -44,10 +45,14 @@ do $$ begin
   if to_regclass('public.site_visits') is not null then
     execute 'drop policy if exists "Public insert visits" on public.site_visits';
     execute 'drop policy if exists "Authenticated read visits" on public.site_visits';
+    execute 'drop policy if exists "admins read visits" on public.site_visits';
+    execute 'create policy "admins read visits" on public.site_visits for select to authenticated using (public.is_admin())';
   end if;
   if to_regclass('public.session_durations') is not null then
     execute 'drop policy if exists "Public insert durations" on public.session_durations';
     execute 'drop policy if exists "Authenticated read durations" on public.session_durations';
+    execute 'drop policy if exists "admins read durations" on public.session_durations';
+    execute 'create policy "admins read durations" on public.session_durations for select to authenticated using (public.is_admin())';
   end if;
 end $$;
 

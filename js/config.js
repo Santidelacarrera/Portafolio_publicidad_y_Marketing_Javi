@@ -14,7 +14,7 @@
 const SUPABASE_CONFIG = {
   URL: "https://ccufeziqbutxyikkcany.supabase.co",      // <-- SUPABASE_URL
   ANON_KEY: "sb_publishable_pHhsyoXz3SN5vd-zVtJqIQ_lFYQTpT8",         // <-- SUPABASE_ANON_KEY
-  BUCKET: "test-upload",                        // Bucket temporal para diagnóstico de Storage
+  BUCKET: "portafolio-media",                   // Bucket de Storage para archivos
 };
 
 // Nombres de tablas usadas en toda la app (para evitar strings sueltos)

@@ -7,6 +7,8 @@
  */
 
 let editingProjectId = null;
+const escapeHtml = (value) => String(value ?? "").replace(/[&<>'\"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
+const safeMediaUrl = (value) => { try { const url = new URL(value); return ["https:", "http:"].includes(url.protocol) ? url.href : ""; } catch { return ""; } };
 
 document.addEventListener("DOMContentLoaded", async () => {
   const session = await requireAuth();
@@ -57,7 +59,7 @@ async function loadAdminProjects() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    list.innerHTML = `<p class="text-red-600 text-sm">Error al cargar proyectos: ${error.message}</p>`;
+    list.innerHTML = `<p class="text-red-600 text-sm">No fue posible cargar los proyectos. Intenta nuevamente.</p>`;
     return;
   }
 
@@ -68,12 +70,12 @@ async function loadAdminProjects() {
 
   list.innerHTML = data.map((p) => `
     <div class="bg-white rounded-2xl border border-pink-50 p-4 flex gap-4">
-      ${p.images && p.images[0]
-        ? `<img src="${p.images[0]}" class="w-20 h-20 rounded-xl object-cover flex-shrink-0" />`
+      ${p.images && safeMediaUrl(p.images[0])
+        ? `<img src="${escapeHtml(safeMediaUrl(p.images[0]))}" alt="" class="w-20 h-20 rounded-xl object-cover flex-shrink-0" />`
         : `<div class="w-20 h-20 rounded-xl bg-pink-50 flex-shrink-0"></div>`}
       <div class="flex-1 min-w-0">
-        <p class="tag">${p.category || "General"}</p>
-        <h4 class="font-semibold text-ink truncate">${p.title}</h4>
+        <p class="tag">${escapeHtml(p.category || "General")}</p>
+        <h4 class="font-semibold text-ink truncate">${escapeHtml(p.title)}</h4>
         <p class="text-xs text-gray-400 mt-1">👁 ${p.views || 0} vistas</p>
         <div class="flex gap-3 mt-2">
           <button class="text-xs font-semibold text-brand hover:underline" onclick="editProject('${p.id}')">Editar</button>
@@ -115,7 +117,7 @@ function closeProjectForm() {
 async function editProject(id) {
   const { data, error } = await supabaseClient.from(TABLES.PROJECTS).select("*").eq("id", id).single();
   if (error) {
-    alert("No se pudo cargar el proyecto: " + error.message);
+    alert("No se pudo cargar el proyecto. Intenta nuevamente.");
     return;
   }
   openProjectForm(data);
@@ -126,7 +128,7 @@ async function deleteProject(id) {
 
   const { error } = await supabaseClient.from(TABLES.PROJECTS).delete().eq("id", id);
   if (error) {
-    alert("Error al eliminar: " + error.message);
+    alert("No se pudo eliminar el proyecto. Intenta nuevamente.");
     return;
   }
   loadAdminProjects();
@@ -204,7 +206,7 @@ async function handleProjectSubmit(e) {
     closeProjectForm();
     loadAdminProjects();
   } catch (err) {
-    errorEl.textContent = "Error: " + err.message;
+    errorEl.textContent = "No se pudo guardar el proyecto. Revisa los datos e inténtalo nuevamente.";
     errorEl.classList.remove("hidden");
   } finally {
     submitBtn.disabled = false;
@@ -238,7 +240,7 @@ async function loadStats() {
   } else {
     viewsList.innerHTML = projects.map((p) => `
       <div class="flex items-center justify-between px-5 py-3">
-        <span class="text-sm text-ink">${p.title}</span>
+        <span class="text-sm text-ink">${escapeHtml(p.title)}</span>
         <span class="text-sm font-semibold text-brand">${p.views || 0} vistas</span>
       </div>
     `).join("");

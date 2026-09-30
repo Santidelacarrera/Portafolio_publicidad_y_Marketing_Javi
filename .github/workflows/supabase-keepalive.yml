@@ -1,0 +1,16 @@
+name: Supabase health check
+on:
+  schedule:
+    - cron: '17 5 */3 * *'
+  workflow_dispatch:
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check public API availability
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          test -n "$SUPABASE_URL" && test -n "$SUPABASE_ANON_KEY"
+          curl --fail --silent --show-error --max-time 15 -H "apikey: $SUPABASE_ANON_KEY" "$SUPABASE_URL/rest/v1/projects?select=id&limit=1" > /dev/null

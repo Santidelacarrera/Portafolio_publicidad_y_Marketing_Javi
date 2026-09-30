@@ -1,106 +1,44 @@
 # Portafolio Javiera Gurruchaga
 
-Sitio web de portafolio (publicidad y marketing) con panel de administración
-propio, construido con **HTML + Tailwind CSS + JavaScript vanilla**, e
-integrado con **Supabase** (base de datos, autenticación y almacenamiento de
-archivos). Sitio 100% estático, listo para desplegar en **Netlify** sin build.
+Portafolio estático editorial desplegable en Netlify. Usa JavaScript sin framework, Supabase para contenido, Auth y Storage, y una función de Netlify para el formulario de contacto.
 
-## Estructura
+## Arquitectura
 
-```
-├── index.html          # Vista pública (galería de proyectos)
-├── login.html          # Login del panel admin
-├── admin.html          # Panel de administración (CMS)
-├── css/styles.css       # Estilos complementarios a Tailwind
-├── js/
-│   ├── config.js         # ⚠️ Acá van tus credenciales de Supabase
-│   ├── supabaseClient.js # Cliente Supabase + helper de subida de archivos
-│   ├── auth.js           # Login/logout con Supabase Auth
-│   ├── main.js           # Lógica del sitio público
-│   └── admin.js          # Lógica del panel admin (CRUD, stats, contacto)
-├── sql/schema.sql       # Script SQL para crear tablas, policies y bucket
-└── netlify.toml         # Configuración de despliegue en Netlify
-```
+- `index.html`, `css/styles.css`, `js/main.js`: sitio público, accesible y sin analítica.
+- `admin.html`, `login.html`, `js/admin.js`: CMS privado con Supabase Auth.
+- `sql/schema.sql`: esquema, RLS y roles de administradores.
+- `netlify/functions/contact.js`: validación de contacto en servidor y escritura con una credencial privada.
+- `_headers`: cabeceras de seguridad de Netlify.
+- `.github/workflows/supabase-keepalive.yml`: comprobación de disponibilidad, no garantía contra suspensión.
 
-## 1. Configurar Supabase
+## Configuración obligatoria
 
-1. Creá un proyecto en [supabase.com](https://supabase.com).
-2. Andá a **SQL Editor** y ejecutá el contenido de [sql/schema.sql](sql/schema.sql).
-   Esto crea las tablas `projects`, `site_settings`, `site_visits`,
-   `session_durations`, la función `increment_project_views`, el bucket de
-   Storage `portafolio-media` y todas las políticas de seguridad (RLS).
-3. Si el bucket no se crea automáticamente por permisos, creálo a mano en
-   **Storage > New Bucket**: nombre `portafolio-media`, marcado como **Public**.
-4. Andá a **Authentication > Users > Add user** y creá los dos usuarios admin:
-   - `santiagodelacarrera2018@gmail.com` / `[REDACTED]`
-   - `Jgurruchagaz@icloud.com` / `[REDACTED]`
+1. Ejecute `sql/schema.sql` en Supabase. Si el proyecto ya existía, revise las políticas antiguas indicadas por el script y confirme que fueron eliminadas.
+2. Cree usuarios desde Supabase Auth, obtenga sus UUID y agréguelo(s) a `public.admin_users` con la sentencia comentada al final del SQL. No hay usuarios ni contraseñas en el repositorio.
+3. Configure en `js/config.js` únicamente la URL y la clave pública/anon de Supabase. La clave pública puede estar en navegador bajo RLS; jamás coloque una `service_role` ahí.
+4. En Netlify configure `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` como variables secretas del servidor. No las exponga como variables de build públicas.
+5. En GitHub, configure los secretos `SUPABASE_URL` y `SUPABASE_ANON_KEY` para el health check.
+6. Sustituya `[DOMINIO-OFICIAL]` en canonical, sitemap y robots; complete los placeholders legales y haga revisar esos textos por asesoría jurídica.
 
-   En el login de la web se ingresa como usuario `Admin` o `Javi` (el
-   frontend traduce internamente al email registrado, ver [js/auth.js](js/auth.js)).
+## Desarrollo y verificación
 
-5. Copiá tu **Project URL** y **anon public key** desde
-   **Project Settings > API**.
+No necesita instalación ni build del frontend. Puede servir la carpeta con `npx serve .`. Para probar funciones localmente use Netlify CLI con las variables anteriores. Compruebe sintaxis con:
 
-## 2. Configurar las credenciales en el proyecto
-
-Editá [js/config.js](js/config.js) y reemplazá:
-
-```js
-const SUPABASE_CONFIG = {
-  URL: "https://TU-PROYECTO.supabase.co",
-  ANON_KEY: "TU-ANON-KEY-PUBLICA-AQUI",
-  BUCKET: "portafolio-media",
-};
+```powershell
+node --check js/main.js
+node --check js/admin.js
+node --check netlify/functions/contact.js
 ```
 
-## 3. Probar en local
+## Supabase y privacidad
 
-No requiere instalación ni build. Basta con servir los archivos estáticos,
-por ejemplo:
+El visitante puede leer proyectos y configuración pública. Sólo usuarios registrados en `admin_users` pueden modificar proyectos, ajustes y Storage. `contact_messages` no tiene políticas de navegador: la función de Netlify valida longitud, formato, honeypot y consentimiento antes de insertar con una clave privada.
 
-```bash
-npx serve .
-# o
-python -m http.server 5500
-```
+El aviso de cookies sólo conserva la preferencia en `localStorage`; no hay analítica ni marketing. El workflow cada tres días es un monitor ligero de la API; no debe presentarse como mecanismo que garantice evitar la pausa del plan de Supabase.
 
-Abrí `http://localhost:5500` para el sitio público y
-`http://localhost:5500/login.html` para entrar al panel admin.
+## Pendientes operativos
 
-## 4. Desplegar en Netlify
-
-**Opción A — Arrastrar y soltar:** Andá a [app.netlify.com/drop](https://app.netlify.com/drop)
-y arrastrá la carpeta del proyecto.
-
-**Opción B — Conectado a Git (recomendado):**
-1. Subí el proyecto a un repositorio de GitHub/GitLab.
-2. En Netlify: **Add new site > Import an existing project**.
-3. Build command: dejar vacío (o el que aparece en `netlify.toml`).
-4. Publish directory: `.` (raíz del proyecto).
-5. Deploy 🚀
-
-El archivo [netlify.toml](netlify.toml) ya incluye redirects amigables
-(`/admin`, `/login`).
-
-## Funcionalidades
-
-### Vista pública
-- Galería dinámica de proyectos consultada en tiempo real desde Supabase.
-- Filtro por categoría.
-- Modal de detalle con imágenes, videos (archivo o embed de YouTube/Canva) y audios.
-- Footer con Instagram y correo, editables desde el panel admin.
-- Registro de visitas y tiempo de permanencia para estadísticas.
-
-### Panel Admin (`/login.html` → `/admin.html`)
-- Login con Supabase Auth (usuarios `Admin` / `Javi`).
-- CRUD completo de proyectos, con subida automática de archivos a Supabase Storage.
-- Módulo de estadísticas: visitas totales, tiempo promedio de permanencia,
-  cantidad de proyectos y vistas por proyecto.
-- Configuración de Instagram y correo de contacto del footer.
-
-## Notas de seguridad
-
-- La `anon key` es segura de exponer en el frontend: el acceso real está
-  controlado por las **Row Level Security policies** definidas en
-  `sql/schema.sql` (lectura pública, escritura solo para usuarios autenticados).
-- Las contraseñas de los usuarios admin viven en Supabase Auth, no en el código.
+- Rote inmediatamente las credenciales de administradores que estuvieron presentes en el historial del repositorio y revise el historial remoto.
+- Verifique en Supabase que RLS está activado y que no quedan políticas amplias para `authenticated`.
+- Configure limitación de tasa perimetral (Netlify/WAF o proveedor equivalente) para el endpoint de contacto; una función serverless no ofrece límite distribuido persistente por sí sola.
+- Confirme el dominio, datos de contacto, derechos y créditos reales antes de publicar.

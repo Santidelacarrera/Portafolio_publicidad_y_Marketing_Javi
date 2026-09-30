@@ -21,7 +21,4 @@ const SUPABASE_CONFIG = {
 const TABLES = {
   PROJECTS: "projects",
   CONTACT: "site_settings",
-  STATS_VISITS: "site_visits",
-  STATS_TIME: "session_durations",
-  PROJECT_VIEWS: "project_views",
 };

@@ -19,6 +19,7 @@ function videoMimeFromPath(path) {
   return ({ mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime" })[extension] || "";
 }
 function mediaStateFromProject(project = {}) {
+  project ??= {};
   const images = uniqueValues(project.images).map((url) => ({ url, path: storagePathFromPublicUrl(url) }));
   const audios = uniqueValues(project.audios).map((url) => ({ url, path: storagePathFromPublicUrl(url) }));
   const videosByUrl = new Map();

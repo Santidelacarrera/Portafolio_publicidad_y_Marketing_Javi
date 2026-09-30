@@ -47,6 +47,7 @@
           + Nuevo proyecto
         </button>
       </div>
+      <p id="project-action-status" class="hidden mb-4 text-sm text-emerald-700" role="status" aria-live="polite"></p>
 
       <div id="admin-projects-list" class="grid sm:grid-cols-2 gap-4"></div>
     </section>
@@ -123,8 +124,17 @@
             class="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-light" />
         </div>
 
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div><label class="text-sm font-medium text-gray-700">Rol</label><input id="project-role" type="text" class="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-light" /></div>
+          <div><label class="text-sm font-medium text-gray-700">Año</label><input id="project-year" type="text" class="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-light" /></div>
+        </div>
+        <div><label class="text-sm font-medium text-gray-700">Herramientas y técnicas</label><input id="project-tools" type="text" class="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-light" /></div>
+        <div><label class="text-sm font-medium text-gray-700">Créditos</label><textarea id="project-credits" rows="2" class="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-light"></textarea></div>
+        <div><label class="text-sm font-medium text-gray-700">Derechos</label><textarea id="project-rights" rows="2" class="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-light"></textarea></div>
+
         <div>
           <label class="text-sm font-medium text-gray-700">Imágenes</label>
+          <div id="project-existing-images" class="mt-2 space-y-2"></div>
           <input id="project-images-file" type="file" accept="image/*" multiple
             class="mt-1 w-full text-sm" />
           <p class="text-xs text-gray-400 mt-1">Se suben automáticamente a Supabase Storage.</p>
@@ -132,6 +142,7 @@
 
         <div>
           <label class="text-sm font-medium text-gray-700">Videos (archivo)</label>
+          <div id="project-existing-videos" class="mt-2 space-y-2"></div>
           <input id="project-videos-file" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" multiple
             class="mt-1 w-full text-sm" />
           <p class="text-xs text-gray-400 mt-1">MP4 y WebM son los formatos recomendados para web. Sobre 6 MB la subida es reanudable.</p>
@@ -145,6 +156,7 @@
 
         <div>
           <label class="text-sm font-medium text-gray-700">Audios</label>
+          <div id="project-existing-audios" class="mt-2 space-y-2"></div>
           <input id="project-audios-file" type="file" accept="audio/*" multiple
             class="mt-1 w-full text-sm" />
         </div>

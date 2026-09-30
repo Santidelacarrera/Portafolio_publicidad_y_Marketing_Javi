@@ -9,6 +9,92 @@
 let editingProjectId = null;
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>'\"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
 const safeMediaUrl = (value) => { try { const url = new URL(value); return ["https:", "http:"].includes(url.protocol) ? url.href : ""; } catch { return ""; } };
+const uniqueValues = (values) => [...new Set((values || []).filter(Boolean))];
+const mediaKey = (url) => storagePathFromPublicUrl(url) || String(url || "");
+const emptyMediaState = () => ({ images: [], videos: [], audios: [], removed: { images: new Set(), videos: new Set(), audios: new Set() } });
+let projectMediaState = emptyMediaState();
+
+function videoMimeFromPath(path) {
+  const extension = path.split(".").pop()?.toLowerCase();
+  return ({ mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime" })[extension] || "";
+}
+function mediaStateFromProject(project = {}) {
+  const images = uniqueValues(project.images).map((url) => ({ url, path: storagePathFromPublicUrl(url) }));
+  const audios = uniqueValues(project.audios).map((url) => ({ url, path: storagePathFromPublicUrl(url) }));
+  const videosByUrl = new Map();
+  (project.video_assets || []).forEach((asset) => {
+    const url = asset?.url || asset?.original_url;
+    const path = storagePathFromPublicUrl(url);
+    if (path && (!asset?.source || asset.source === "storage")) videosByUrl.set(url, { ...asset, source: "storage", url, path, mime_type: asset.mime_type || videoMimeFromPath(path) });
+  });
+  (project.videos || []).forEach((url) => {
+    const path = storagePathFromPublicUrl(url);
+    if (path && !videosByUrl.has(url)) videosByUrl.set(url, { source: "storage", url, original_url: url, mime_type: videoMimeFromPath(path), title: "Video", path });
+  });
+  return {
+    images,
+    videos: [...videosByUrl.values()],
+    audios,
+    removed: { images: new Set(), videos: new Set(), audios: new Set() },
+  };
+}
+function mediaLabel(item) {
+  try { return decodeURIComponent(new URL(item.url).pathname.split("/").pop()) || "Archivo"; } catch { return "Archivo"; }
+}
+function renderExistingMedia(type, containerId) {
+  const container = document.getElementById(containerId);
+  container.replaceChildren();
+  const items = projectMediaState[type];
+  if (!items.length) return;
+  items.forEach((item) => {
+    const key = mediaKey(item.url);
+    const marked = projectMediaState.removed[type].has(key);
+    const row = document.createElement("div");
+    row.className = `flex items-center gap-3 rounded-lg border p-2 ${marked ? "border-red-200 bg-red-50" : "border-gray-100 bg-gray-50"}`;
+    if (type === "images" && safeMediaUrl(item.url)) {
+      const preview = document.createElement("img");
+      preview.src = item.url;
+      preview.alt = "Imagen actual del proyecto";
+      preview.className = "h-14 w-14 rounded object-cover";
+      row.append(preview);
+    } else if (type === "audios" && safeMediaUrl(item.url)) {
+      const audio = document.createElement("audio");
+      audio.src = item.url;
+      audio.controls = true;
+      audio.className = "max-w-40";
+      row.append(audio);
+    } else {
+      const icon = document.createElement("span");
+      icon.className = "flex h-10 w-10 items-center justify-center rounded bg-pink-50 text-brand";
+      icon.textContent = "▶";
+      row.append(icon);
+    }
+    const description = document.createElement("p");
+    description.className = "min-w-0 flex-1 truncate text-xs text-gray-600";
+    description.textContent = marked ? `${mediaLabel(item)} · Marcado para eliminar` : mediaLabel(item);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = marked ? "text-xs font-semibold text-brand hover:underline" : "text-xs font-semibold text-red-500 hover:underline";
+    button.textContent = marked ? "Restaurar" : "Eliminar";
+    button.addEventListener("click", () => {
+      if (marked) projectMediaState.removed[type].delete(key);
+      else projectMediaState.removed[type].add(key);
+      renderExistingMedia(type, containerId);
+    });
+    row.append(description, button);
+    container.append(row);
+  });
+}
+function renderProjectMedia() {
+  renderExistingMedia("images", "project-existing-images");
+  renderExistingMedia("videos", "project-existing-videos");
+  renderExistingMedia("audios", "project-existing-audios");
+}
+function showProjectActionStatus(message) {
+  const status = document.getElementById("project-action-status");
+  status.textContent = message;
+  status.classList.remove("hidden");
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
   const session = await requireAuth();
@@ -97,15 +183,22 @@ function bindProjectModal() {
 
 function openProjectForm(project = null) {
   editingProjectId = project?.id || null;
+  projectMediaState = mediaStateFromProject(project);
   document.getElementById("project-form-title").textContent = project ? "Editar proyecto" : "Nuevo proyecto";
   document.getElementById("project-id").value = project?.id || "";
   document.getElementById("project-title").value = project?.title || "";
   document.getElementById("project-description").value = project?.description || "";
   document.getElementById("project-category").value = project?.category || "";
-  document.getElementById("project-videos-embed").value = (project?.videos || []).join("\n");
+  document.getElementById("project-role").value = project?.role || "";
+  document.getElementById("project-year").value = project?.year || "";
+  document.getElementById("project-tools").value = project?.tools || "";
+  document.getElementById("project-credits").value = project?.credits || "";
+  document.getElementById("project-rights").value = project?.rights || "";
+  document.getElementById("project-videos-embed").value = (project?.videos || []).filter((url) => !storagePathFromPublicUrl(url)).join("\n");
   document.getElementById("project-links").value = (project?.links || []).join(", ");
   document.getElementById("project-form-error").classList.add("hidden");
   document.getElementById("project-form-progress").classList.add("hidden");
+  renderProjectMedia();
   document.getElementById("project-form-modal").classList.remove("hidden");
 }
 
@@ -113,6 +206,8 @@ function closeProjectForm() {
   document.getElementById("project-form-modal").classList.add("hidden");
   document.getElementById("project-form").reset();
   editingProjectId = null;
+  projectMediaState = emptyMediaState();
+  renderProjectMedia();
 }
 
 async function editProject(id) {
@@ -127,14 +222,35 @@ async function editProject(id) {
 
 async function deleteProject(id) {
   if (!confirm("¿Eliminar este proyecto? Esta acción no se puede deshacer.")) return;
-
+  const { data: project, error: readError } = await supabaseClient
+    .from(TABLES.PROJECTS).select("images, videos, audios, video_assets").eq("id", id).single();
+  if (readError) {
+    console.error("Error loading project media before deletion:", readError);
+    alert("No se pudo verificar el contenido del proyecto. No se eliminó nada.");
+    return;
+  }
+  const media = mediaStateFromProject(project);
+  const storagePaths = uniqueValues([
+    ...media.images.map((item) => item.path),
+    ...media.videos.map((item) => item.path),
+    ...media.audios.map((item) => item.path),
+  ]);
   const { error } = await supabaseClient.from(TABLES.PROJECTS).delete().eq("id", id);
   if (error) {
     console.error("Error deleting project:", error);
     alert("No se pudo eliminar el proyecto. Intenta nuevamente.");
     return;
   }
-  loadAdminProjects();
+  let storageCleanupFailed = false;
+  try {
+    await removeFilesFromStorage(storagePaths);
+  } catch (storageError) {
+    storageCleanupFailed = true;
+    console.error("Project deleted but Storage cleanup failed:", storageError);
+    alert("El proyecto fue eliminado, pero algunos archivos podrían haber quedado en Storage.");
+  }
+  await loadAdminProjects();
+  showProjectActionStatus(storageCleanupFailed ? "Proyecto eliminado; algunos archivos podrían requerir revisión en Storage." : "Proyecto eliminado correctamente.");
 }
 
 async function handleProjectSubmit(e) {
@@ -147,10 +263,17 @@ async function handleProjectSubmit(e) {
   submitBtn.disabled = true;
   submitBtn.textContent = "Guardando...";
 
+  const uploadedPaths = [];
+  let databaseSaved = false;
   try {
     const title = document.getElementById("project-title").value.trim();
     const description = document.getElementById("project-description").value.trim();
     const category = document.getElementById("project-category").value.trim();
+    const role = document.getElementById("project-role").value.trim();
+    const year = document.getElementById("project-year").value.trim();
+    const tools = document.getElementById("project-tools").value.trim();
+    const credits = document.getElementById("project-credits").value.trim();
+    const rights = document.getElementById("project-rights").value.trim();
 
     const imageFiles = Array.from(document.getElementById("project-images-file").files);
     const videoFiles = Array.from(document.getElementById("project-videos-file").files);
@@ -161,42 +284,63 @@ async function handleProjectSubmit(e) {
     const links = document.getElementById("project-links").value
       .split(",").map((s) => s.trim()).filter(Boolean);
 
+    let verifiedMedia = emptyMediaState();
+    if (editingProjectId) {
+      const { data: existing, error: existingError } = await supabaseClient
+        .from(TABLES.PROJECTS).select("images, videos, audios, video_assets").eq("id", editingProjectId).single();
+      if (existingError || !existing) {
+        console.error("Error loading project media before saving:", existingError);
+        throw new Error("No se pudo verificar el contenido existente. El proyecto no fue modificado.");
+      }
+      verifiedMedia = mediaStateFromProject(existing);
+    }
+
     // Subida de archivos a Supabase Storage
     progressEl.textContent = "Subiendo archivos multimedia...";
     progressEl.classList.remove("hidden");
 
-    const uploadedImages = await Promise.all(imageFiles.map((f) => uploadFileToStorage(f, "images")));
-    const uploadedVideos = await Promise.all(videoFiles.map((f) => uploadVideoToStorage(f, (percent) => {
-      progressEl.textContent = percent === null ? `Subiendo ${f.name}...` : `Subiendo ${f.name}: ${percent}%`;
-    })));
-    const uploadedAudios = await Promise.all(audioFiles.map((f) => uploadFileToStorage(f, "audios")));
+    const uploadAndTrack = async (files, upload) => {
+      const results = await Promise.allSettled(files.map(async (file) => {
+        const result = await upload(file);
+        const url = typeof result === "string" ? result : result.url;
+        const path = storagePathFromPublicUrl(url);
+        if (!path) throw new Error("No se pudo verificar la ruta del archivo subido.");
+        uploadedPaths.push(path);
+        return result;
+      }));
+      const failed = results.find((result) => result.status === "rejected");
+      if (failed) throw failed.reason;
+      return results.map((result) => result.value);
+    };
+    const uploadedImages = await uploadAndTrack(imageFiles, (file) => uploadFileToStorage(file, "images"));
+    const uploadedVideos = await uploadAndTrack(videoFiles, (file) => uploadVideoToStorage(file, (percent) => {
+      progressEl.textContent = percent === null ? `Subiendo ${file.name}...` : `Subiendo ${file.name}: ${percent}%`;
+    }));
+    const uploadedAudios = await uploadAndTrack(audioFiles, (file) => uploadFileToStorage(file, "audios"));
 
     progressEl.textContent = "Guardando proyecto en la base de datos...";
 
-    // Si estamos editando, conservamos los archivos previos y agregamos los nuevos
-    let existingImages = [], existingVideos = [], existingAudios = [], existingVideoAssets = [];
-    if (editingProjectId) {
-      const { data: existing } = await supabaseClient
-        .from(TABLES.PROJECTS).select("images, videos, audios, video_assets").eq("id", editingProjectId).single();
-      if (existing) {
-        existingImages = existing.images || [];
-        existingVideos = existing.videos || [];
-        existingAudios = existing.audios || [];
-        existingVideoAssets = existing.video_assets || [];
-      }
-    }
+    const keep = (type) => verifiedMedia[type].filter((item) => !projectMediaState.removed[type].has(mediaKey(item.url)));
+    const keptImages = keep("images");
+    const keptVideos = keep("videos");
+    const keptAudios = keep("audios");
+    const externalVideos = uniqueValues(embedVideos.filter((url) => !storagePathFromPublicUrl(url)));
+    const allVideoAssets = [...keptVideos, ...uploadedVideos];
 
     const payload = {
       title,
       description,
       category,
-      images: [...existingImages, ...uploadedImages],
-      // El campo de embeds se reescribe completo desde el textarea en cada guardado;
-      // los archivos de video subidos se agregan a lo ya existente.
-      videos: [...embedVideos, ...existingVideos, ...uploadedVideos.map((video) => video.url)],
-      video_assets: [...existingVideoAssets, ...uploadedVideos],
-      audios: [...existingAudios, ...uploadedAudios],
-      links,
+      role,
+      year,
+      tools,
+      credits,
+      rights,
+      images: uniqueValues([...keptImages.map((item) => item.url), ...uploadedImages]),
+      videos: uniqueValues([...externalVideos, ...keptVideos.map((item) => item.url), ...uploadedVideos.map((video) => video.url)]),
+      video_assets: uniqueValues(allVideoAssets.map((video) => video.url)).map((url) => allVideoAssets.find((video) => video.url === url)),
+      audios: uniqueValues([...keptAudios.map((item) => item.url), ...uploadedAudios]),
+      links: uniqueValues(links),
     };
 
     let dbError;
@@ -209,12 +353,36 @@ async function handleProjectSubmit(e) {
     }
 
     if (dbError) throw dbError;
+    databaseSaved = true;
+    const removedPaths = uniqueValues([
+      ...verifiedMedia.images.filter((item) => projectMediaState.removed.images.has(mediaKey(item.url))).map((item) => item.path),
+      ...verifiedMedia.videos.filter((item) => projectMediaState.removed.videos.has(mediaKey(item.url))).map((item) => item.path),
+      ...verifiedMedia.audios.filter((item) => projectMediaState.removed.audios.has(mediaKey(item.url))).map((item) => item.path),
+    ]);
+    try {
+      await removeFilesFromStorage(removedPaths);
+    } catch (storageError) {
+      console.error("Project saved but selected Storage cleanup failed:", storageError);
+      alert("El proyecto fue guardado, pero algunos archivos marcados podrían haber quedado en Storage.");
+    }
 
     closeProjectForm();
-    loadAdminProjects();
+    await loadAdminProjects();
+    showProjectActionStatus("Proyecto guardado correctamente.");
   } catch (err) {
     console.error("Error saving project or uploading media:", err);
-    errorEl.textContent = "No se pudo guardar el proyecto. Revisa los datos e inténtalo nuevamente.";
+    let cleanupFailed = false;
+    if (!databaseSaved && uploadedPaths.length) {
+      try {
+        await removeFilesFromStorage(uploadedPaths);
+      } catch (cleanupError) {
+        cleanupFailed = true;
+        console.error("Unable to clean up newly uploaded files:", cleanupError);
+      }
+    }
+    errorEl.textContent = cleanupFailed
+      ? "No se pudo guardar el proyecto y algunos archivos nuevos podrían haber quedado en Storage."
+      : (err.message || "No se pudo guardar el proyecto. Revisa los datos e inténtalo nuevamente.");
     errorEl.classList.remove("hidden");
   } finally {
     submitBtn.disabled = false;

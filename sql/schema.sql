@@ -22,6 +22,7 @@ alter table public.projects add column if not exists year text;
 alter table public.projects add column if not exists tools text;
 alter table public.projects add column if not exists credits text;
 alter table public.projects add column if not exists rights text;
+alter table public.projects add column if not exists video_assets jsonb not null default '[]'::jsonb;
 alter table public.projects enable row level security;
 drop policy if exists "Public read projects" on public.projects; drop policy if exists "Authenticated insert projects" on public.projects; drop policy if exists "Authenticated update projects" on public.projects; drop policy if exists "Authenticated delete projects" on public.projects;
 create policy "public reads projects" on public.projects for select using (true);

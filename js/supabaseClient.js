@@ -1,32 +1,12 @@
-/**
- * Inicialización del cliente de Supabase.
- * Requiere que se haya cargado antes:
- *   1. https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2 (UMD -> window.supabase)
- *   2. js/config.js (define SUPABASE_CONFIG y TABLES)
- */
 const { createClient } = window.supabase;
-
 const supabaseClient = createClient(SUPABASE_CONFIG.URL, SUPABASE_CONFIG.ANON_KEY);
-
-/**
- * Sube un archivo al bucket de Storage y devuelve su URL pública.
- * @param {File} file
- * @param {string} folder - subcarpeta dentro del bucket (ej: "images", "videos", "audios")
- * @returns {Promise<string>} URL pública del archivo
- */
-async function uploadFileToStorage(file, folder = "misc") {
-  const cleanName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-  const path = `${folder}/${Date.now()}_${cleanName}`;
-
-  const { error: uploadError } = await supabaseClient.storage
-    .from(SUPABASE_CONFIG.BUCKET)
-    .upload(path, file, { cacheControl: "3600", upsert: false });
-
-  if (uploadError) throw uploadError;
-
-  const { data } = supabaseClient.storage
-    .from(SUPABASE_CONFIG.BUCKET)
-    .getPublicUrl(path);
-
-  return data.publicUrl;
-}
+const VIDEO_TYPES = { mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime" };
+const LARGE_UPLOAD_BYTES = 6 * 1024 * 1024;
+function cleanStorageName(name) { return name.replace(/[^a-zA-Z0-9.\-_]/g, "_"); }
+function fileExtension(file) { return file.name.split(".").pop().toLowerCase(); }
+function mediaType(file) { return file.type || VIDEO_TYPES[fileExtension(file)] || "application/octet-stream"; }
+function createStoragePath(file, folder) { return `${folder}/${Date.now()}_${cleanStorageName(file.name)}`; }
+function publicStorageUrl(path) { return supabaseClient.storage.from(SUPABASE_CONFIG.BUCKET).getPublicUrl(path).data.publicUrl; }
+async function uploadFileToStorage(file, folder = "misc") { const path = createStoragePath(file, folder); const { error } = await supabaseClient.storage.from(SUPABASE_CONFIG.BUCKET).upload(path, file, { cacheControl: "3600", contentType: mediaType(file), upsert: false }); if (error) throw error; return publicStorageUrl(path); }
+function validateVideoFile(file) { const extension = fileExtension(file); if (!file || !file.size || !["mp4", "webm", "mov"].includes(extension)) throw new Error("Formato de video no permitido."); if (file.type && !Object.values(VIDEO_TYPES).includes(file.type)) throw new Error("El tipo de archivo de video no es válido."); }
+async function uploadVideoToStorage(file, onProgress) { validateVideoFile(file); const path = createStoragePath(file, "videos"), contentType = mediaType(file); if (file.size <= LARGE_UPLOAD_BYTES) { onProgress?.(null); const { error } = await supabaseClient.storage.from(SUPABASE_CONFIG.BUCKET).upload(path, file, { cacheControl: "3600", contentType, upsert: false }); if (error) throw error; } else { if (!window.tus) throw new Error("El cargador de archivos grandes no está disponible."); const { data: { session } } = await supabaseClient.auth.getSession(); if (!session?.access_token) throw new Error("La sesión expiró."); const storageHost = new URL(SUPABASE_CONFIG.URL).hostname.replace(".supabase.co", ".storage.supabase.co"); await new Promise((resolve, reject) => { const upload = new window.tus.Upload(file, { endpoint: `https://${storageHost}/storage/v1/upload/resumable`, retryDelays: [0, 3000, 5000, 10000, 20000], chunkSize: LARGE_UPLOAD_BYTES, removeFingerprintOnSuccess: true, headers: { authorization: `Bearer ${session.access_token}`, "x-upsert": "false" }, metadata: { bucketName: SUPABASE_CONFIG.BUCKET, objectName: path, contentType, cacheControl: "3600" }, onError: reject, onProgress: (uploaded, total) => onProgress?.(Math.round(uploaded / total * 100)), onSuccess: resolve }); upload.findPreviousUploads().then((previous) => { if (previous.length) upload.resumeFromPreviousUpload(previous[0]); upload.start(); }).catch(reject); }); } return { source: "storage", url: publicStorageUrl(path), original_url: publicStorageUrl(path), mime_type: contentType, title: file.name }; }

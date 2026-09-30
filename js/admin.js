@@ -163,20 +163,23 @@ async function handleProjectSubmit(e) {
     progressEl.classList.remove("hidden");
 
     const uploadedImages = await Promise.all(imageFiles.map((f) => uploadFileToStorage(f, "images")));
-    const uploadedVideos = await Promise.all(videoFiles.map((f) => uploadFileToStorage(f, "videos")));
+    const uploadedVideos = await Promise.all(videoFiles.map((f) => uploadVideoToStorage(f, (percent) => {
+      progressEl.textContent = percent === null ? `Subiendo ${f.name}...` : `Subiendo ${f.name}: ${percent}%`;
+    })));
     const uploadedAudios = await Promise.all(audioFiles.map((f) => uploadFileToStorage(f, "audios")));
 
     progressEl.textContent = "Guardando proyecto en la base de datos...";
 
     // Si estamos editando, conservamos los archivos previos y agregamos los nuevos
-    let existingImages = [], existingVideos = [], existingAudios = [];
+    let existingImages = [], existingVideos = [], existingAudios = [], existingVideoAssets = [];
     if (editingProjectId) {
       const { data: existing } = await supabaseClient
-        .from(TABLES.PROJECTS).select("images, videos, audios").eq("id", editingProjectId).single();
+        .from(TABLES.PROJECTS).select("images, videos, audios, video_assets").eq("id", editingProjectId).single();
       if (existing) {
         existingImages = existing.images || [];
         existingVideos = existing.videos || [];
         existingAudios = existing.audios || [];
+        existingVideoAssets = existing.video_assets || [];
       }
     }
 
@@ -187,7 +190,8 @@ async function handleProjectSubmit(e) {
       images: [...existingImages, ...uploadedImages],
       // El campo de embeds se reescribe completo desde el textarea en cada guardado;
       // los archivos de video subidos se agregan a lo ya existente.
-      videos: [...embedVideos, ...existingVideos, ...uploadedVideos],
+      videos: [...embedVideos, ...existingVideos, ...uploadedVideos.map((video) => video.url)],
+      video_assets: [...existingVideoAssets, ...uploadedVideos],
       audios: [...existingAudios, ...uploadedAudios],
       links,
     };

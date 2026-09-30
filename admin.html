@@ -132,8 +132,9 @@
 
         <div>
           <label class="text-sm font-medium text-gray-700">Videos (archivo)</label>
-          <input id="project-videos-file" type="file" accept="video/*" multiple
+          <input id="project-videos-file" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" multiple
             class="mt-1 w-full text-sm" />
+          <p class="text-xs text-gray-400 mt-1">MP4 y WebM son los formatos recomendados para web. Sobre 6 MB la subida es reanudable.</p>
         </div>
 
         <div>
@@ -183,6 +184,7 @@
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/supabaseClient.js"></script>
   <script src="js/auth.js"></script>

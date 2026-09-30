@@ -137,9 +137,11 @@ La única Function, `contact.js`, recibe JSON, descarta el honeypot `company`, v
 | Variable | Uso | Tratamiento |
 | --- | --- | --- |
 | `SUPABASE_URL` | Function de contacto | Configuración server-side |
-| `SUPABASE_SERVICE_ROLE_KEY` | Function de contacto | Secreto privilegiado, exclusivamente server-side |
+| `SUPABASE_SERVICE_ROLE_KEY` | Function de contacto y lectura del destinatario | Secreto privilegiado, exclusivamente server-side |
+| `RESEND_API_KEY` | API de Resend para notificaciones | Secreto server-side configurado en Netlify |
+| `RESEND_FROM_EMAIL` | Remitente verificado en Resend | Configuración server-side configurada en Netlify |
 
-La función no concede acceso de navegador a `contact_messages` y devuelve respuestas genéricas. No implementa rate limiting actualmente; añádalo en una mejora separada si el volumen o abuso lo exige.
+La función guarda primero el mensaje y luego obtiene el destinatario desde `site_settings.contact_email`; por ello el correo público configurado sigue siendo la única fuente del destinatario. Resend recibe una notificación con `Reply-To` del visitante. Si el guardado falla responde con error; si la notificación falla después de guardar responde `202` sin reintento automático, evitando duplicados controlables. No implementa rate limiting actualmente; añádalo en una mejora separada si el volumen o abuso lo exige.
 
 `_headers` define CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` y `X-Frame-Options`. Pruebe Supabase, Storage, media, fuentes, embeds y la Function tras cambiar la CSP.
 

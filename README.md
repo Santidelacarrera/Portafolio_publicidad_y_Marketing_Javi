@@ -132,16 +132,14 @@ Revise los logs del navegador ante errores de upload, sin mostrar datos internos
 
 `netlify.toml` publica `.` y toma functions de `netlify/functions`. Define `/admin` → `/admin.html` y `/login` → `/login.html`.
 
-La única Function, `contact.js`, recibe JSON, descarta el honeypot `company`, valida nombre, correo, mensaje y consentimiento, y escribe en `contact_messages`. Requiere estas variables en Netlify:
+La única Function, `contact.js`, recibe JSON, descarta el honeypot `bot-field`, valida nombre, correo, mensaje y consentimiento, y escribe en `contact_messages`. Requiere estas variables en Netlify:
 
 | Variable | Uso | Tratamiento |
 | --- | --- | --- |
 | `SUPABASE_URL` | Function de contacto | Configuración server-side |
-| `SUPABASE_SERVICE_ROLE_KEY` | Function de contacto y lectura del destinatario | Secreto privilegiado, exclusivamente server-side |
-| `RESEND_API_KEY` | API de Resend para notificaciones | Secreto server-side configurado en Netlify |
-| `RESEND_FROM_EMAIL` | Remitente verificado en Resend | Configuración server-side configurada en Netlify |
+| `SUPABASE_SERVICE_ROLE_KEY` | Function de contacto | Secreto privilegiado, exclusivamente server-side |
 
-La función guarda primero el mensaje y luego obtiene el destinatario desde `site_settings.contact_email`; por ello el correo público configurado sigue siendo la única fuente del destinatario. Resend recibe una notificación con `Reply-To` del visitante. Si el guardado falla responde con error; si la notificación falla después de guardar responde `202` sin reintento automático, evitando duplicados controlables. No implementa rate limiting actualmente; añádalo en una mejora separada si el volumen o abuso lo exige.
+El formulario HTML está registrado para Netlify Forms con un nombre estable, un campo oculto `form-name` y honeypot. El navegador registra el mismo envío en Netlify Forms mediante AJAX, manteniendo la experiencia sin redirección; configure la notificación del destinatario en Netlify Forms → Submission notifications. La Function continúa guardando el mensaje en Supabase y no envía correo. No implementa rate limiting actualmente; añádalo en una mejora separada si el volumen o abuso lo exige.
 
 `_headers` define CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` y `X-Frame-Options`. Pruebe Supabase, Storage, media, fuentes, embeds y la Function tras cambiar la CSP.
 

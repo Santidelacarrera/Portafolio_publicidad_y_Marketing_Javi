@@ -1,5 +1,7 @@
 User-agent: *
 Allow: /
+
 Disallow: /admin.html
 Disallow: /login.html
-Sitemap: https://[DOMINIO-OFICIAL]/sitemap.xml
+
+Sitemap: https://portafoliojavigurruchaga.netlify.app/sitemap.xml

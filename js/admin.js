@@ -106,6 +106,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindTabs();
   bindLogout();
   bindProjectModal();
+  document.getElementById("admin-projects-list").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-project-action]");
+    if (!button) return;
+    const id = button.dataset.projectId;
+    if (button.dataset.projectAction === "edit") editProject(id);
+    if (button.dataset.projectAction === "delete") deleteProject(id);
+  });
   bindSettingsForm();
 
   loadAdminProjects();
@@ -164,10 +171,11 @@ async function loadAdminProjects() {
       <div class="flex-1 min-w-0">
         <p class="tag">${escapeHtml(p.category || "General")}</p>
         <h4 class="font-semibold text-ink truncate">${escapeHtml(p.title)}</h4>
+        <p class="text-xs text-gray-500">${p.published ? "Publicado" : "Borrador"}</p>
         <p class="text-xs text-gray-400 mt-1">👁 ${p.views || 0} vistas</p>
         <div class="flex gap-3 mt-2">
-          <button class="text-xs font-semibold text-brand hover:underline" onclick="editProject('${p.id}')">Editar</button>
-          <button class="text-xs font-semibold text-red-500 hover:underline" onclick="deleteProject('${p.id}')">Eliminar</button>
+          <button class="text-xs font-semibold text-brand hover:underline" data-project-action="edit" data-project-id="${escapeHtml(p.id)}">Editar</button>
+          <button class="text-xs font-semibold text-red-500 hover:underline" data-project-action="delete" data-project-id="${escapeHtml(p.id)}">Eliminar</button>
         </div>
       </div>
     </div>
@@ -190,6 +198,7 @@ function openProjectForm(project = null) {
   document.getElementById("project-title").value = project?.title || "";
   document.getElementById("project-description").value = project?.description || "";
   document.getElementById("project-category").value = project?.category || "";
+  document.getElementById("project-published").checked = project?.published === true;
   document.getElementById("project-role").value = project?.role || "";
   document.getElementById("project-year").value = project?.year || "";
   document.getElementById("project-tools").value = project?.tools || "";
@@ -332,6 +341,7 @@ async function handleProjectSubmit(e) {
       title,
       description,
       category,
+      published: document.getElementById("project-published").checked,
       role,
       year,
       tools,

@@ -1,192 +1,64 @@
 # Portafolio Javiera Gurruchaga
 
-Portafolio público y panel privado para publicar proyectos de dirección de arte, publicidad y marketing. Es una aplicación estática en HTML, CSS y JavaScript: Netlify la sirve y Supabase aporta autenticación, PostgreSQL con RLS y Storage. Una Netlify Function recibe el formulario de contacto con privilegios exclusivamente del lado servidor.
+Portafolio público y panel administrativo. Netlify sirve los archivos estáticos y recibe los mensajes mediante Netlify Forms. Supabase aporta autenticación, base de datos con RLS y almacenamiento multimedia.
 
-## Arquitectura
+## Preparación y build
 
-```text
-Navegador
- ├─ Sitio público: index.html + js/main.js
- ├─ Acceso y panel: login.html / admin.html + js/auth.js / js/admin.js
- ├─ Supabase JS (CDN) ──► Auth, PostgreSQL/RLS y Storage
- └─ POST /.netlify/functions/contact ──► Netlify Function ──► contact_messages
+```bash
+npm ci
+npm run build
 ```
 
-El frontend usa la clave anónima/publicable de Supabase. La autorización efectiva no depende de ocultar controles en el navegador: la aplican Supabase Auth, RLS y las policies de Storage.
+El build copia únicamente los archivos públicos a `dist/`, compila el CSS del panel y empaqueta versiones fijadas de Supabase JS y TUS. Netlify ejecuta `npm run build` y publica `dist/`. `README.md`, `sql/`, `scripts/`, `node_modules/` y `.git/` quedan fuera del sitio.
 
-## Stack
-
-| Área | Implementación |
-| --- | --- |
-| Interfaz | HTML5, CSS3 y JavaScript sin framework de aplicación |
-| UI del panel | Tailwind CSS vía CDN |
-| Cliente de datos | `@supabase/supabase-js@2` vía CDN |
-| Videos grandes | `tus-js-client@4.3.1` vía CDN |
-| Backend | Supabase Auth, PostgreSQL, RLS y Storage |
-| Hosting/serverless | Netlify y una función JavaScript |
-| Automatización | GitHub Actions: health check de Supabase |
-
-No existe `package.json`, lockfile ni paso de compilación de la aplicación. `netlify.toml` publica la raíz y ejecuta un comando informativo.
-
-## Estructura
-
-```text
-/
-├── index.html                 # Portafolio público y contacto
-├── login.html                 # Acceso privado
-├── admin.html                 # Panel de administración
-├── cookies.html               # Páginas legales
-├── privacidad.html
-├── terminos.html
-├── reembolsos.html
-├── _headers                   # CSP y cabeceras HTTP
-├── netlify.toml               # Publicación, functions y redirects
-├── robots.txt
-├── sitemap.xml
-├── css/
-│   └── styles.css
-├── js/
-│   ├── config.js              # Configuración pública y nombres de tablas
-│   ├── supabaseClient.js      # Cliente, Storage y carga TUS
-│   ├── auth.js                # Sesión, login y logout
-│   ├── main.js                # Render público, modal y contacto
-│   └── admin.js               # CRUD, media, ajustes y estadísticas
-├── sql/
-│   └── schema.sql             # Esquema, RLS y policies
-├── netlify/functions/
-│   └── contact.js             # Inserción server-side de mensajes
-└── .github/workflows/
-    └── supabase-keepalive.yml
-```
-
-## Frontend
-
-`index.html` carga Supabase, `js/config.js`, `js/supabaseClient.js` y `js/main.js`, en ese orden. `main.js` consulta `projects` por fecha, crea tarjetas mediante APIs del DOM, filtra por categoría y abre un `<dialog>` con el detalle. Valida URLs HTTP(S), usa `images`, `video_assets`, `videos`, `audios` y metadatos editoriales, y muestra estados de carga, vacío y error.
-
-El formulario público hace `POST` a `/.netlify/functions/contact`. La preferencia de cookies se guarda en `localStorage`; no hay analítica ni marketing implementados.
-
-El panel usa `requireAuth()` para redirigir si no existe sesión. Esa redirección es solo UX: la autorización real pertenece a Auth, RLS y Storage Policies.
+Las dependencias están fijadas en `package-lock.json`. Revise `npm audit` al actualizarlas. El JavaScript y CSS de producción se sirven desde el mismo origen; `_headers` no admite scripts inline ni CDN de JavaScript.
 
 ## Supabase
 
-### Configuración pública
+`js/config.js` contiene la URL y clave publicable del proyecto. Esa clave puede estar en el navegador; **nunca** coloque allí una clave `service_role`. El acceso a datos lo controlan Auth, RLS y las políticas de Storage.
 
-`js/config.js` define `SUPABASE_CONFIG`:
+Antes de publicar la nueva versión, ejecute `sql/schema.sql` en el SQL Editor del proyecto correcto. El script:
 
-- `URL`: URL pública del proyecto;
-- `ANON_KEY`: clave anónima/publicable;
-- `BUCKET`: `portafolio-media`;
-- `TABLES`: `projects`, `site_settings`, `site_visits` y `session_durations`.
+- crea `private.is_admin()` y retira los permisos de ejecución de la antigua función pública;
+- permite la lectura anónima únicamente de proyectos `published = true`;
+- conserva como publicados los proyectos existentes cuando añade la columna por primera vez;
+- crea los proyectos nuevos como borradores hasta que se marque **Publicar este proyecto** en el panel;
+- limita escrituras de proyectos, ajustes y archivos a UUID registrados en `public.admin_users`;
+- revoca acceso de navegador a la antigua tabla `contact_messages`, sin borrar los mensajes históricos.
 
-La URL y la `SUPABASE_ANON_KEY` pueden estar en el frontend. Nunca incluya una Service Role Key en HTML, CSS o JavaScript que llegue al navegador.
+Después de crear una cuenta en Supabase Authentication, registre su UUID de administrador con la instrucción comentada al final de `sql/schema.sql`. No abra permisos de escritura a `anon`.
 
-### Auth y autorización
-
-`loginWithEmail()` usa `supabaseClient.auth.signInWithPassword`; `getCurrentSession()`, `requireAuth()` y `logout()` administran la sesión. Las cuentas se crean en Supabase Authentication, no mediante `schema.sql`.
-
-El esquema registra administradores en `public.admin_users` y define `public.is_admin()`, una función `SECURITY DEFINER` para el usuario autenticado. La función se usa en las policies administrativas.
-
-### PostgreSQL y RLS
-
-`sql/schema.sql` habilita RLS y declara:
-
-| Recurso | Acceso definido |
-| --- | --- |
-| `admin_users` | Lista de UUIDs de administradores; RLS habilitado |
-| `projects` | Lectura pública; CRUD para administradores autenticados |
-| `site_settings` | Lectura pública; actualización para administradores |
-| `contact_messages` | Sin acceso desde navegador; inserta la Function server-side |
-| `is_admin()` | Comprobación de privilegio administrativo |
-
-`projects` contiene título, descripción, categoría, metadatos editoriales, arrays de media/enlaces, `video_assets` JSONB, `views` y `created_at`. `site_settings` usa el registro `id = 1` para Instagram y correo.
-
-Las tablas históricas `site_visits` y `session_durations` no se crean en el esquema; si existen, el script limita su lectura a administradores. `admin.js` todavía las consulta para estadísticas. Si no existen, el panel registra el error y usa valores de respaldo: confirme su modelo de datos antes de depender de esas métricas.
-
-### Storage
-
-El bucket público `portafolio-media` sirve recursos del portafolio. El esquema declara estas policies sobre `storage.objects`:
-
-| Operación | Regla |
-| --- | --- |
-| `SELECT` | Lectura pública en `portafolio-media` |
-| `INSERT` | Usuario autenticado y `is_admin()` |
-| `UPDATE` | Usuario autenticado y `is_admin()` |
-| `DELETE` | Usuario autenticado y `is_admin()` |
-
-No convierta la escritura en pública ni use una Service Role Key en el cliente.
-
-## Administración y media
-
-El panel crea, edita y elimina filas de `projects`, modifica `site_settings` y consulta estadísticas. Al editar conserva media existente y agrega la nueva. Eliminar una fila no elimina automáticamente sus objetos de Storage; revise periódicamente archivos huérfanos.
-
-`js/supabaseClient.js` genera rutas como `images/<timestamp>_<nombre-saneado>` y devuelve URL pública tras una carga correcta:
-
-- imágenes y audio usan `uploadFileToStorage()` con `upsert: false`;
-- videos MP4, WebM y MOV de hasta 6 MiB usan upload convencional con `upsert: true`;
-- videos mayores usan TUS con sesión autenticada, reintentos, chunks de 6 MiB, progreso y reanudación;
-- `admin.js` procesa cargas del mismo tipo con `Promise.all()` y guarda el proyecto al completarlas.
-
-Revise los logs del navegador ante errores de upload, sin mostrar datos internos a visitantes.
-
-## Netlify y contacto
-
-`netlify.toml` publica `.` y toma functions de `netlify/functions`. Define `/admin` → `/admin.html` y `/login` → `/login.html`.
-
-La única Function, `contact.js`, recibe JSON, descarta el honeypot `bot-field`, valida nombre, correo, mensaje y consentimiento, y escribe en `contact_messages`. Requiere estas variables en Netlify:
-
-| Variable | Uso | Tratamiento |
-| --- | --- | --- |
-| `SUPABASE_URL` | Function de contacto | Configuración server-side |
-| `SUPABASE_SERVICE_ROLE_KEY` | Function de contacto | Secreto privilegiado, exclusivamente server-side |
-
-El formulario HTML está registrado para Netlify Forms con un nombre estable, un campo oculto `form-name` y honeypot. El navegador registra el mismo envío en Netlify Forms mediante AJAX, manteniendo la experiencia sin redirección; configure la notificación del destinatario en Netlify Forms → Submission notifications. La Function continúa guardando el mensaje en Supabase y no envía correo. No implementa rate limiting actualmente; añádalo en una mejora separada si el volumen o abuso lo exige.
-
-`_headers` define CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` y `X-Frame-Options`. Pruebe Supabase, Storage, media, fuentes, embeds y la Function tras cambiar la CSP.
-
-## GitHub Actions
-
-`.github/workflows/supabase-keepalive.yml` se ejecuta manualmente o cada tres días y consulta disponibilidad de `projects`. Usa los secretos de Actions `SUPABASE_URL` y `SUPABASE_ANON_KEY`; el workflow no contiene sus valores.
-
-## Desarrollo local
-
-1. Sirva la raíz con un servidor HTTP estático; no use `file://`.
-2. Para Functions, use Netlify CLI si está disponible; para frontend basta un servidor estático.
-3. Configure variables server-side fuera de Git.
-4. Ejecute `sql/schema.sql` conscientemente en Supabase SQL Editor y registre UUIDs administrativos después de crearlos en Auth.
-5. Pruebe portafolio, login, CRUD, uploads, ajustes y contacto antes de desplegar.
+El bucket `portafolio-media` sigue siendo público para servir archivos publicados. El script SQL configura sus políticas de escritura y crea buckets nuevos con límites. Para aplicar esos límites a un bucket existente, use la API de Storage:
 
 ```bash
-node --check js/main.js
-node --check js/supabaseClient.js
-git diff --check
-git status
+npm run configure:storage
 ```
 
-## Deploy y flujo Git
+Para ejecutar ese comando, defina temporalmente `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` en el entorno de la terminal. `scripts/configure-storage.mjs` verifica que la URL corresponda al proyecto esperado y fija un límite de 50 MiB y una lista de tipos MIME para imágenes, video y audio. No guarde esa clave en Git ni la pase al navegador. Los archivos existentes no se eliminan.
 
-Antes de integrar cambios, cree una rama de trabajo, revise el diff y las policies afectadas, y pruebe rutas públicas, `/login`, `/admin`, Storage y contacto. Confirme variables de Netlify y secretos de Actions. Tras desplegar, revise consola, logs de Functions y autorización real.
+## Contacto y privacidad
 
-`index.html`, `robots.txt` y `sitemap.xml` contienen marcadores de dominio oficial. Sustitúyalos por el dominio productivo mediante una tarea de configuración deliberada.
+El formulario `contact` de `index.html` envía una sola solicitud codificada a Netlify Forms. Incluye un campo honeypot y exige consentimiento en el navegador. Configure y compruebe la notificación del destinatario en Netlify Forms → Submission notifications. La función antigua de contacto ya no se despliega ni usa la clave privilegiada.
 
-## Checklist de producción
+`privacidad.html` indica que Netlify Forms almacena las consultas. Los mensajes históricos en `public.contact_messages` permanecen en Supabase hasta que su responsable decida su conservación o eliminación. Al retirar la función, retire también `SUPABASE_SERVICE_ROLE_KEY` de las variables de Netlify si no se usa para otro fin.
 
-- [ ] RLS y Storage Policies revisadas.
-- [ ] Administradores mínimos creados en Auth y registrados por UUID.
-- [ ] `SUPABASE_SERVICE_ROLE_KEY` solo en variables server-side.
-- [ ] Bucket, imágenes, video convencional y TUS verificados.
-- [ ] Function de contacto probada con consentimiento y honeypot.
-- [ ] CSP y cabeceras probadas tras cambios de terceros.
-- [ ] Dominio canónico, `robots.txt` y `sitemap.xml` actualizados.
-- [ ] No hay secretos, `.env` reales ni credenciales en el diff o historial a publicar.
-- [ ] Existe un respaldo de esquema, policies y despliegue.
+La preferencia del aviso de cookies se almacena en `localStorage`. No se ha implementado analítica ni marketing. Supabase Auth persiste la sesión administrativa en el navegador; por eso la CSP y el control de dependencias son importantes.
 
-## Seguridad, mantenimiento y troubleshooting
+## Panel y archivos
 
-- Las contraseñas, tokens privados, claves privilegiadas y credenciales administrativas nunca deben entrar a Git. Ante una exposición, rótelas o revóquelas, elimínelas del código, audite el historial y trate backups antiguos como confidenciales.
-- Una clave pública de Supabase no concede permisos administrativos: RLS y Storage Policies son el límite de autorización.
-- Si el panel no puede escribir, revise sesión, registro en `admin_users`, `is_admin()` y policies, sin deshabilitar RLS globalmente.
-- Si falla una carga, compruebe tipo MIME, tamaño, sesión, bucket, path y policy. Para TUS, compruebe librería y endpoint.
-- Si el portafolio queda vacío, revise la consulta de `projects`, los estados de `main.js`, `images`/`video_assets` y la consola.
-- Si falla contacto, revise consentimiento, validación, variables de Netlify y logs de la Function; nunca exponga la Service Role Key para diagnosticar.
+`login.html` inicia sesión con Supabase Auth. `requireAuth()` redirige a visitantes sin sesión, pero la autorización real ocurre en RLS. El panel permite crear borradores, publicarlos, editar proyectos y administrar ajustes de contacto.
 
-El estado actual combina contenido público, panel administrativo protegido por datos y backend serverless mínimo. Mantenga la seguridad en Supabase y Netlify, no solo en la interfaz.
+`js/supabaseClient.js` valida tipo y tamaño antes de subir. Los videos de más de 6 MiB usan TUS; todos los tipos admitidos tienen un máximo de 50 MiB. Los límites efectivos deben estar también en el bucket, porque la validación del navegador se puede omitir.
+
+## Comprobaciones
+
+```bash
+npm audit
+node --check js/main.js
+node --check js/admin.js
+node --check js/supabaseClient.js
+npm test
+git diff --check
+```
+
+Después de aplicar el SQL y desplegar, compruebe el portafolio público, borradores, login, CRUD, uploads, preferencias de cookies y una entrega real del formulario. Revise las cabeceras CSP, las notificaciones de Netlify Forms y las políticas efectivas de Supabase. No publique el cambio del frontend antes de añadir `published` en la base de datos, porque la consulta pública nueva depende de esa columna.

@@ -1,7 +1,6 @@
 [build]
-  publish = "."
-  functions = "netlify/functions"
-  command = "echo 'Sitio estatico, sin build'"
+  publish = "dist"
+  command = "npm run build"
 
 [[redirects]]
   from = "/admin"

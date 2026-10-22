@@ -1,0 +1,20 @@
+{
+  "name": "portafolio-javiera",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "npm run build && node scripts/check-build.mjs",
+    "configure:storage": "node scripts/configure-storage.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.118.0",
+    "tus-js-client": "4.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "esbuild": "0.28.2",
+    "postcss": "8.5.31",
+    "tailwindcss": "4.3.3"
+  }
+}

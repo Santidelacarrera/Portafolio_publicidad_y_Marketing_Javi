@@ -1,0 +1,13 @@
+@import "tailwindcss" source(none);
+@source "../admin.html";
+@source "../js/admin.js";
+
+@theme {
+  --color-brand: #D63384;
+  --color-brand-light: #E85D88;
+  --color-brand-dark: #A32763;
+  --color-surface: #F8F9FA;
+  --color-ink: #1A1A1A;
+  --font-display: "Poppins", sans-serif;
+  --font-body: "Inter", sans-serif;
+}
